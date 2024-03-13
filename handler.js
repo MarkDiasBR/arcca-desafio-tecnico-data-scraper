@@ -1,9 +1,38 @@
 import axios from 'axios';
 import pg from 'pg';
 
-
 export const hello = async (event) => {
   let runTime = Date.now();
+
+  const allStoresReviewsArray = [];
+
+  for (let i = 1; i <= 19; i++) {
+    let timer = Date.now();
+    console.log(`Fetching reviews for store ${i}...`)
+    allStoresReviewsArray.push(await fetchReviews(i));
+
+    console.log(`Done fetching reviews for store ${i}... (${((Date.now() - timer) / 1000).toFixed(2)} s)`)
+  }
+
+  for (let i = 1; i <= 19; i++) {
+    let timer = Date.now();
+    console.log(`Adding reviews in DB for store ${i}...`)
+    await runDatabaseByReviewId(i, allStoresReviewsArray[i - 1]);
+    console.log(`Done adding reviews in DB for store ${i}... (${((Date.now() - timer) / 1000).toFixed(2)} s)`)
+  }
+
+  console.log(`Tempo total de execução: (${((Date.now() - runTime) / 1000).toFixed(2)} s)`);
+  console.log("event.name: ", event.name);
+
+  const lambdaResponse = {
+    statusCode: 200,
+    body: JSON.stringify({
+      tempoDeExecucao: `${((Date.now() - runTime) / 1000).toFixed(2)} s`,
+      eventName: event.name
+    })
+  }
+
+  return lambdaResponse;
 
   async function fetchReviews(storeNumber) {
     const query = findQueryByStoreNumber(storeNumber);
@@ -53,43 +82,6 @@ export const hello = async (event) => {
     return reviews; // retorna um array de reviews de length igual a quantidade de reviews da loja. todos os reviews são da mesma loja (mesmo store_id)
   }
 
-  const allStoresReviewsArray = [];
-
-  // 
-
-  for (let i = 1; i <= 19; i++) {
-    let timer = Date.now();
-    console.log(`Fetching reviews for store ${i}...`)
-    allStoresReviewsArray.push(await fetchReviews(i));
-
-    console.log(`Done fetching reviews for store ${i}... (${((Date.now() - timer) / 1000).toFixed(2)} s)`)
-  }
-
-  for (let i = 1; i <= 19; i++) {
-    let timer = Date.now();
-    console.log(`Adding reviews in DB for store ${i}...`)
-    await runDatabaseByReviewId(i, allStoresReviewsArray[i - 1]);
-    console.log(`Done adding reviews in DB for store ${i}... (${((Date.now() - timer) / 1000).toFixed(2)} s)`)
-  }
-
-
-  console.log(`Tempo total de execução: (${((Date.now() - runTime) / 1000).toFixed(2)} s)`);
-
-  console.log("event.name: ", event.name);
-
-  const lambdaResponse = {
-    statusCode: 200,
-    body: JSON.stringify({
-      tempoDeExecucao: `${((Date.now() - runTime) / 1000).toFixed(2)} s`,
-      eventName: event.name
-    })
-  }
-
-  return lambdaResponse;
-
-  // *** BANCO DE DADOS ***
-
-  // Insere as informações das reviews de UMA LOJA no banco de dados
   async function runDatabaseByReviewId(id, reviews) {
     const { Pool, Client } = pg;
     const connectionString = 'postgresql://postgres:postpass@postgres-nema-reviews.c9wqu22m2tmd.us-east-1.rds.amazonaws.com:5432/nema';
@@ -142,7 +134,7 @@ export const hello = async (event) => {
         `, [thisUserId, id, review[0], review[3], review[4]]);
       }
 
-      // Elimina todos os usuários que: user possui review com store_id dado, porém não estão no array atualizado de reviews desta mesma store_id e nem possuem alguma outra review, portanto, é deletado
+      //TODO: Elimina todos os usuários que: user possui review com store_id dado, porém não estão no array atualizado de reviews desta mesma store_id e nem possuem alguma outra review, portanto, é deletado
       // const googleIdsArray = reviews.map(r => r[1]);
       // const placeholdersString = [...Array(googleIdsArray.length).keys()].map(i => `$${i + 1}`).join(', ');
       // await client.query(`
@@ -244,51 +236,6 @@ export const hello = async (event) => {
         return 'https://www.google.com/maps/rpc/listugcposts?authuser=0&hl=en&gl=br&pb=!1m7!1s0x952739b9ef7d6abb%3A0x2f6338bda4c94d6c!3s!6m4!4m1!1e1!4m1!1e3!2m2!1i10!2s!5m2!1s1eHvZf6oJoyi5OUPze2S4AI!7e81!8m5!1b1!2b1!3b1!5b1!7b1!11m6!1e3!2e1!3sen!4sbr!6m1!1i2!13m1!1e2';
       case 19:
         return 'https://www.google.com/maps/rpc/listugcposts?authuser=0&hl=en&gl=br&pb=!1m7!1s0x952739757c644431%3A0x66cfb55158630b43!3s!6m4!4m1!1e1!4m1!1e3!2m2!1i10!2s!5m2!1s1eHvZe-6JLbZ5OUPzqiW0A4!7e81!8m5!1b1!2b1!3b1!5b1!7b1!11m6!1e3!2e1!3sen!4sbr!6m1!1i2!13m1!1e2';
-    }
-  }
-
-  function findStoreNameByStoreNumber(storeNumber) {
-    switch (storeNumber) {
-      case 0:
-        return 'test';
-      case 1:
-        return 'Nema - Vinicius De Moraes | Padaria de Fermentação Natural';
-      case 2:
-        return 'Nema - Visconde de Pirajá | Padaria de Fermentação Natural';
-      case 3:
-        return 'Nema Padaria e Pizzaria - Leblon | Pães, Doces e Pizzas ';
-      case 4:
-        return 'Nema - Arpoador | Padaria de Fermentação Natural';
-      case 5:
-        return 'Nema - Leme | Padaria de Fermentação Natural';
-      case 6:
-        return 'Nema - Copacabana Hilário Gouveia | Padaria de Fermentação Natural';
-      case 7:
-        return 'Nema - Copacabana Raimundo Corrêa | Padaria de Fermentação Natural';
-      case 8:
-        return 'Nema - Botafogo | Padaria de Fermentação Natural';
-      case 9:
-        return 'Nema - Flamengo | Padaria de Fermentação Natural';
-      case 10:
-        return 'Nema(Voluntários)';
-      case 11:
-        return 'Nema Padaria - Tijuca | Padaria de Fermentação Natural';
-      case 12:
-        return 'Nema - Barra da Tijuca | Padaria de Fermentação Natural';
-      case 13:
-        return 'Padaria Nema - Niterói';
-      case 14:
-        return 'Nema Padaria - Jardim Icaraí';
-      case 15:
-        return 'Nema - Vitoria | Padaria de Fermentação Natural';
-      case 16:
-        return 'Nema - Pinheiros | Padaria de Fermentação Natural';
-      case 17:
-        return 'Nema - Santo André | Padaria de Fermentação Natural';
-      case 18:
-        return 'Nema Floripa - Centro | Padaria de Fermentação Natural';
-      case 19:
-        return 'Nema Floripa';
     }
   }
 };
